@@ -46,7 +46,7 @@ macro(_yong_write_library_config_file prj lib)
   file(APPEND "${${prj}_YONG_CONFIG_FILE}"
     "set(${prj}_${lib}_DEPENDENT_PROJECTS \"${${prj}_${lib}_DEPENDENT_PROJECTS}\")\n")
   file(APPEND "${${prj}_YONG_CONFIG_FILE}"
-    "set(${prj}_${lib}_DEPENDENT_LOCAL_LIBS \"${${prj_${lib}_DEPENDENT_LOCAL_LIBS}}\")\n")
+    "set(${prj}_${lib}_DEPENDENT_LOCAL_LIBS \"${${prj}_${lib}_DEPENDENT_LOCAL_LIBS}\")\n")
   foreach(dep_prj ${${prj}_${lib}_DEPENDENT_PROJECTS})
     if (${prj}_${lib}_DEPENDENCE_${dep_prj}_COMMIT_HASHES)
       file(APPEND "${${prj}_YONG_CONFIG_FILE}"
