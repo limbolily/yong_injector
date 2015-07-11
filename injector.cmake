@@ -215,10 +215,10 @@ endmacro()
 
 macro(yong_option var_name option_text)
   set(prj ${YONG_PROJECT_NAME})
-  if (${ARGN})
-    set(initial_var ${ARGN})
-  else()
+  if (ARGN STREQUAL "")
     set(initial_var OFF)
+  else()
+    set(initial_var ${ARGN})
   endif()
 
   option(${prj}_${var_name} "${option_text}" ${initial_var})
@@ -275,9 +275,9 @@ macro(yong_add_library_end lib)
   _yong_install_library(${prj} ${lib})
 endmacro()
 
-macro(yong_install_header_files prj)
+macro(yong_install_header_files prj dir)
   install(FILES ${ARGN}
-    DESTINATION "${_${prj}_install_include_prefix}")
+    DESTINATION "${_${prj}_install_include_prefix}/${dir}")
 endmacro()
 
 macro(yong_install_header_directories prj)
