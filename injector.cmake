@@ -283,11 +283,14 @@ endmacro()
 macro(yong_install_header_directories prj)
   unset(listvar)
   unset(dirs)
+  unset(destination)
   unset(files_matching)
 
   foreach(arg ${ARGN})
     if (arg STREQUAL "DIRECTORIES")
       set(listvar dirs)
+    elseif (arg STREQUAL DESTINATION)
+      set(listvar destination)
     elseif (arg STREQUAL "FILES_MATCHING")
       set(listvar files_matching)
     else()
@@ -298,7 +301,7 @@ macro(yong_install_header_directories prj)
 
   if (files_matching)
     install(DIRECTORY ${dirs}
-      DESTINATION "${_${prj}_install_include_prefix}"
+      DESTINATION "${_${prj}_install_include_prefix}/${destination}"
       FILES_MATCHING ${files_matching})
     unset(files_matching_str)
   else()
@@ -369,6 +372,10 @@ macro(yong_add_dependence prj target)
       list(GET ${prj}_${target}_DEPENDENCE_${dep_prj}_COMMIT_HASHES
            -1 commit_hash)
       if (NOT commit_hash STREQUAL ${${dep_prj}_GIT_COMMIT_HASH})
+        message(STATUS
+          "Request ${prj} hash: ${commit_hash}")
+        message(STATUS
+          "Installed ${prj} hash: ${${dep_prj}_GIT_COMMIT_HASH}")
         message(FATAL_ERROR "Commit hash not match!")
       endif()
     endif()
