@@ -100,7 +100,7 @@ macro(_yong_set_library_properties prj lib)
 
 endmacro()
 
-macro(_yong_target_add_dependence prj target dep_prj dep_lib)
+macro(_yong_resolve_dependence_paths dep_prj dep_lib)
   set(location_dir "bin")
   set(import_dir "lib")
   if (${dep_prj}_${dep_lib}_LIB_TYPE STREQUAL "SHARED")
@@ -134,6 +134,29 @@ macro(_yong_target_add_dependence prj target dep_prj dep_lib)
   set(target_name "${dep_prj}_${dep_lib}_imp")
   set(full_location_dir "${${dep_prj}_INSTALL_PREFIX}/${location_dir}")
   set(full_import_dir "${${dep_prj}_INSTALL_PREFIX}/${import_dir}")
+endmacro()
+
+macro(_yong_add_post_copy_command prj exe dep_prj dep_lib)
+  _yong_resolve_dependence_paths(${dep_prj} ${dep_lib})
+  if (NOT CMAKE_CONFIGURATION_TYPES)
+    add_custom_command(
+      TARGET ${exe}
+      POST_BUILD
+      COMMAND ${CMAKE_COMMAND}
+      -E copy "${full_location_dir}/${location_name}"
+              "$<TARGET_FILE_DIR:${exe}>/")
+  else()
+    add_custom_command(
+      TARGET ${exe}
+      POST_BUILD
+      COMMAND ${CMAKE_COMMAND}
+      -E copy "${full_location_dir}/$<CONFIG>/${location_name}"
+              "$<TARGET_FILE_DIR:${exe}>/")
+  endif()
+endmacro()
+
+macro(_yong_target_add_dependence prj target dep_prj dep_lib)
+  _yong_resolve_dependence_paths(${dep_prj} ${dep_lib})
   if (NOT ${dep_prj}_${dep_lib}_ADDED)
     add_library(${target_name}
       ${${dep_prj}_${dep_lib}_LIB_TYPE} IMPORTED)
@@ -156,30 +179,30 @@ macro(_yong_target_add_dependence prj target dep_prj dep_lib)
   add_dependencies(${target} ${target_name})
 endmacro()
 
-#macro(_yong_append_uniquely list_var element)
-#  list(FIND ${list_var} ${element} output_index)
-#  if (output_index EQUAL -1)
-#    list(APPEND ${list_var} ${element})
-#  endif()
-#endmacro()
-#
-#macro(_yong_recursive_fill_dependence_list prj target dep_prj dep_lib)
-#  set(${dep_prj}_CMAKE_CONFIG_FILE
-#    "${${dep_prj}_INSTALL_PREFIX}/cmake/${dep_prj}_yong_config.cmake")
-#  include("${${dep_prj}_CMAKE_CONFIG_FILE}")
-#  foreach(recursive_dep_prj ${${dep_prj}_${dep_lib}_DEPENDENT_PROJECTS})
-#    foreach(recursive_dep_lib
-#      ${${dep_prj}_${dep_lib}_DEPENDENCE_${recursive_dep_prj}_DEPENDENCE_LIBS})
-#    _yong_recursive_fill_dependence_list(
-#       ${prj} ${target} ${recursive_dep_prj} ${recursive_dep_lib})
-#    endforeach()
-#  endforeach()
-#  _yong_append_uniquely(${prj}_${target}_RECURSIVE_DEPENDENT_PROJECTS
-#                        ${dep_prj})
-#  _yong_append_uniquely(
-#    ${prj}_${target}_DEPENDENCE_${dep_prj}_RECURSIVE_DEPENDENCE_LIBS
-#    ${dep_lib})
-#endmacro()
+macro(_yong_append_uniquely list_var element)
+  list(FIND ${list_var} ${element} output_index)
+  if (output_index EQUAL -1)
+    list(APPEND ${list_var} ${element})
+  endif()
+endmacro()
+
+macro(_yong_recursive_fill_dependence_list prj target dep_prj dep_lib)
+  set(${dep_prj}_CMAKE_CONFIG_FILE
+    "${${dep_prj}_INSTALL_PREFIX}/cmake/${dep_prj}_yong_config.cmake")
+  include("${${dep_prj}_CMAKE_CONFIG_FILE}")
+  foreach(recursive_dep_prj ${${dep_prj}_${dep_lib}_DEPENDENT_PROJECTS})
+    foreach(recursive_dep_lib
+      ${${dep_prj}_${dep_lib}_DEPENDENCE_${recursive_dep_prj}_DEPENDENCE_LIBS})
+    _yong_recursive_fill_dependence_list(
+       ${prj} ${target} ${recursive_dep_prj} ${recursive_dep_lib})
+    endforeach()
+  endforeach()
+  _yong_append_uniquely(${prj}_${target}_RECURSIVE_DEPENDENT_PROJECTS
+                        ${dep_prj})
+  _yong_append_uniquely(
+    ${prj}_${target}_DEPENDENCE_${dep_prj}_RECURSIVE_DEPENDENCE_LIBS
+    ${dep_lib})
+endmacro()
 
 macro(yong_project prj language)
   set(YONG_PROJECT_NAME ${prj})
@@ -273,6 +296,65 @@ macro(yong_add_library_end lib)
   _yong_set_library_properties(${prj} ${lib})
   _yong_write_library_config_file(${prj} ${lib})
   _yong_install_library(${prj} ${lib})
+endmacro()
+
+#Usage:
+#   yong_add_executable(<exe>
+#                       [EXCLUDE_FROM_ALL]
+#                       [WIN32]
+#                       [MACOSX_BUNDLE]
+#                       SOURCES source1 source2 ...)
+macro(yong_add_executable exe)
+  set(prj ${YONG_PROJECT_NAME})
+  set(${prj}_${exe}_EXCLUDE_FROM_ALL "")
+  set(${prj}_${exe}_WIN32 "")
+  set(${prj}_${exe}_MACOSX_BUNDLE "")
+  foreach(arg ${ARGN})
+    if (arg STREQUAL "EXCLUDE_FROM_ALL")
+      set(${prj}_${exe}_EXCLUDE_FROM_ALL EXCLUDE_FROM_ALL)
+    elseif (arg STREQUAL "WIN32")
+      set(${prj}_${exe}_WIN32 WIN32)
+    elseif (arg STREQUAL "MACOSX_BUNDLE")
+      set(${prj}_${exe}_MACOSX_BUNDLE MACOSX_BUNDLE)
+    elseif (arg STREQUAL "SOURCES")
+      set(listvar ${prj}_${exe}_SOURCES)
+    else()
+      list(APPEND ${listvar} "${arg}")
+    endif()
+  endforeach()
+  unset(listvar)
+
+  list(APPEND ${prj}_EXECUTABLES ${exe})
+
+  add_executable(${exe}
+    ${${prj}_${exe}_EXCLUDE_FROM_ALL}
+    ${${prj}_${exe}_WIN32}
+    ${${prj}_${exe}_MACOSX_BUNDLE}
+    ${${prj}_${exe}_SOURCES})
+
+endmacro()
+
+macro(yong_add_executable_end exe)
+  set(prj ${YONG_PROJECT_NAME})
+  foreach (dep_prj ${${prj}_${exe}_DEPENDENT_PROJECTS})
+    if (NOT ${prj}_${exe}_DEPENDENCE_${dep_prj}_HEADER_ONLY)
+      foreach(dep_lib
+        ${${prj}_${exe}_DEPENDENCE_${dep_prj}_DEPENDENCE_LIBS})
+        _yong_recursive_fill_dependence_list(
+          ${prj} ${exe} ${dep_prj} ${dep_lib})
+      endforeach()
+    endif()
+  endforeach()
+
+  foreach (dep_prj ${${prj}_${exe}_RECURSIVE_DEPENDENT_PROJECTS})
+    if (NOT ${prj}_${exe}_DEPENDENCE_${dep_prj}_HEADER_ONLY)
+      foreach(dep_lib
+          ${${prj}_${exe}_DEPENDENCE_${dep_prj}_RECURSIVE_DEPENDENCE_LIBS})
+        _yong_add_post_copy_command(${prj} ${exe} ${dep_prj} ${dep_lib})
+      endforeach()
+    endif()
+  endforeach()
+
 endmacro()
 
 macro(yong_install_header_files prj dir)
