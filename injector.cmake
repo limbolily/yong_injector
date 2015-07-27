@@ -136,6 +136,15 @@ macro(_yong_resolve_dependence_paths dep_prj dep_lib)
   set(full_import_dir "${${dep_prj}_INSTALL_PREFIX}/${import_dir}")
 endmacro()
 
+macro(_yong_add_local_post_copy_command exe local_lib)
+  add_custom_command(
+    TARGET ${exe}
+    POST_BUILD
+    COMMAND ${CMAKE_COMMAND}
+    -E copy "$<TARGET_FILE:${local_lib}>"
+            "$<TARGET_FILE_DIR:${exe}>/")
+endmacro()
+
 macro(_yong_add_post_copy_command prj exe dep_prj dep_lib)
   _yong_resolve_dependence_paths(${dep_prj} ${dep_lib})
   if (NOT CMAKE_CONFIGURATION_TYPES)
@@ -344,6 +353,10 @@ macro(yong_add_executable_end exe)
           ${prj} ${exe} ${dep_prj} ${dep_lib})
       endforeach()
     endif()
+  endforeach()
+
+  foreach(local_lib ${${prj}_${exe}_DEPENDENT_LOCAL_LIBS})
+    _yong_add_local_post_copy_command(${exe} ${local_lib})
   endforeach()
 
   foreach (dep_prj ${${prj}_${exe}_RECURSIVE_DEPENDENT_PROJECTS})
